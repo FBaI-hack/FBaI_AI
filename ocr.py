@@ -3,16 +3,22 @@ import time
 import json
 import os
 import requests
+import boto3
 
 
-def naver_ocr(file_path: str, file_name: str) -> str:
+def naver_ocr(file_name: str, file_key: str) -> str:
     """
     NAVER OCR API 기반으로 TEXT 추출하는 로직
     - return : jpg format 파일에 대한 OCR API 응답값
     """
     NAVER_OCR_URL = os.environ.get("NAVER_OCR_URL")
-    NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET")  
+    NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET")
+    S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 
+    s3_client = boto3.client('s3')
+    s3_response = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=file_key)
+    file_content = s3_response['Body'].read()
+    
     headers = {
         "X-OCR-SECRET": NAVER_CLIENT_SECRET
     }
@@ -33,10 +39,10 @@ def naver_ocr(file_path: str, file_name: str) -> str:
         'message': json.dumps(request_json).encode('UTF-8')
     }
 
-    files = [
-      ('file', open(file_path,'rb'))
-    ]
-  
+    files = {
+        "file": (file_name, file_content)
+    }
+
     response = requests.request(
         method="POST", url=NAVER_OCR_URL, headers=headers, data=payload, files=files
     )
