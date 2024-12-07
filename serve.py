@@ -2,6 +2,8 @@ from fastapi import FastAPI, UploadFile, File
 from typing import List
 from ocr import *
 from lang_chain import *
+from mangum import Mangum
+import boto3
 
 
 app = FastAPI(
@@ -9,6 +11,8 @@ app = FastAPI(
   version="1.0",
   description="FBaI : detect fraud by images",
 )
+
+lambda_handler = Mangum(app)
 
 @app.post("/detect_fraud_images")
 async def detect_fraud_images(files: List[UploadFile] = File(...)):
@@ -20,16 +24,16 @@ async def detect_fraud_images(files: List[UploadFile] = File(...)):
     fraud_results = []
     for file in files:
         try:
-            
-            # 업로드 된 파일 임시 저장
-            file_path = f"/tmp/{file.filename}"
-            with open(file_path, "wb") as f:
-                f.write(await file.read())
-            
+
+            s3_client = boto3.client('s3')
+            S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
+            file_key = f"uploads/{file.filename}"
+            s3_client.upload_fileobj(file.file, S3_BUCKET_NAME, file_key)
+
             # naver ocr api 기반으로 text 추출
             extracted_text = naver_ocr(
-                file_path=file_path, 
-                file_name=file.filename
+                file_name=file.filename,
+                file_key=file_key
             )
             
             # 사기 여부 판단 및 판단의 근거 도출
